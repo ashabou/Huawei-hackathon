@@ -2,12 +2,10 @@ import { sensor } from '@kit.SensorServiceKit';
 import { geoLocationManager } from '@kit.LocationKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { vibrator } from '@kit.SensorServiceKit';
-import { BreathingGuide } from './BreathingGuide';
 
 const DOMAIN = 0x0000;
 const TAG = 'StressDetector';
 
-// Detection thresholds - configurable
 const HR_HIGH_THRESHOLD = 100;
 const HR_SPIKE_DELTA = 20;
 const HR_BUFFER_SIZE = 5;
@@ -20,13 +18,6 @@ export type StressState = 'NORMAL' | 'CHECKING' | 'EXERCISE' | 'STRESS';
 
 export type StateChangeCallback = (state: StressState, hr: number) => void;
 
-export interface StressDetectorConfig {
-  hrHighThreshold?: number;
-  hrSpikeDelta?: number;
-  accelThreshold?: number;
-  checkingDurationMs?: number;
-}
-
 class StressDetectorClass {
   private heartRate: number = 0;
   private hrBuffer: number[] = [];
@@ -37,20 +28,12 @@ class StressDetectorClass {
   private accelMagnitude: number = 0;
   private currentSpeed: number = 0;
   private onStateChange: StateChangeCallback | null = null;
-  private checkingStartTime: number = 0;
   private evaluationTimer: number | null = null;
 
-  private config: Required<StressDetectorConfig> = {
-    hrHighThreshold: HR_HIGH_THRESHOLD,
-    hrSpikeDelta: HR_SPIKE_DELTA,
-    accelThreshold: ACCEL_MOVEMENT_THRESHOLD,
-    checkingDurationMs: CHECKING_DURATION_MS
-  };
-
-  setConfig(config: StressDetectorConfig): void {
-    this.config = { ...this.config, ...config };
-    hilog.info(DOMAIN, TAG, 'Config updated: %{public}s', JSON.stringify(this.config));
-  }
+  private hrHighThreshold: number = HR_HIGH_THRESHOLD;
+  private hrSpikeDelta: number = HR_SPIKE_DELTA;
+  private accelThreshold: number = ACCEL_MOVEMENT_THRESHOLD;
+  private checkingDurationMs: number = CHECKING_DURATION_MS;
 
   getHeartRate(): number {
     return this.heartRate;
@@ -64,41 +47,23 @@ class StressDetectorClass {
     return this.currentSpeed;
   }
 
-  async checkSensorAvailability(): Promise<{ heartRate: boolean; accelerometer: boolean }> {
-    let heartRateAvailable = false;
-    let accelerometerAvailable = false;
-
-    try {
-      const hrSensors = sensor.getSensorList(sensor.SensorId.HEART_RATE);
-      heartRateAvailable = hrSensors && hrSensors.length > 0;
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'HR sensor check failed: %{public}s', JSON.stringify(err));
-    }
-
-    try {
-      const accelSensors = sensor.getSensorList(sensor.SensorId.ACCELEROMETER);
-      accelerometerAvailable = accelSensors && accelSensors.length > 0;
-    } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'Accelerometer check failed: %{public}s', JSON.stringify(err));
-    }
-
-    return { heartRate: heartRateAvailable, accelerometer: accelerometerAvailable };
-  }
-
   setOnStateChange(callback: StateChangeCallback): void {
     this.onStateChange = callback;
   }
 
   private getBaseline(): number {
     if (this.hrBuffer.length === 0) return 0;
-    const sum = this.hrBuffer.reduce((a, b) => a + b, 0);
+    let sum = 0;
+    for (let i = 0; i < this.hrBuffer.length; i++) {
+      sum += this.hrBuffer[i];
+    }
     return sum / this.hrBuffer.length;
   }
 
   isElevated(): boolean {
     const baseline = this.getBaseline();
-    const isHigh = this.heartRate > this.config.hrHighThreshold;
-    const isSpike = baseline > 0 && (this.heartRate - baseline) > this.config.hrSpikeDelta;
+    const isHigh = this.heartRate > this.hrHighThreshold;
+    const isSpike = baseline > 0 && (this.heartRate - baseline) > this.hrSpikeDelta;
     return isHigh || isSpike;
   }
 
@@ -109,38 +74,32 @@ class StressDetectorClass {
     }
   }
 
-  private async triggerHapticFeedback(intensity: 'light' | 'medium' | 'heavy'): Promise<void> {
+  private triggerHapticFeedback(durationMs: number): void {
     try {
-      const duration = intensity === 'light' ? 50 : intensity === 'medium' ? 100 : 200;
-      await vibrator.startVibration({
+      vibrator.startVibration({
         type: 'time',
-        duration: duration
+        duration: durationMs
       }, {
         id: 0,
         usage: 'alarm'
       });
     } catch (err) {
-      hilog.warn(DOMAIN, TAG, 'Haptic feedback failed: %{public}s', JSON.stringify(err));
+      hilog.warn(DOMAIN, TAG, 'Haptic failed');
     }
   }
 
   private updateState(newState: StressState): void {
     if (this.state !== newState) {
-      const previousState = this.state;
       this.state = newState;
-      hilog.info(DOMAIN, TAG, 'State changed: %{public}s -> %{public}s, HR: %{public}d',
-        previousState, newState, this.heartRate);
+      hilog.info(DOMAIN, TAG, 'State: %{public}s, HR: %{public}d', newState, this.heartRate);
 
       if (newState === 'STRESS') {
-        this.triggerHapticFeedback('heavy');
-        BreathingGuide.start();
+        this.triggerHapticFeedback(200);
       } else if (newState === 'CHECKING') {
-        this.triggerHapticFeedback('light');
-      } else if (newState === 'NORMAL' && previousState === 'STRESS') {
-        BreathingGuide.stop();
+        this.triggerHapticFeedback(50);
       }
 
-      if (this.onStateChange) {
+      if (this.onStateChange !== null) {
         this.onStateChange(newState, this.heartRate);
       }
     }
@@ -166,17 +125,16 @@ class StressDetectorClass {
       clearTimeout(this.evaluationTimer);
     }
 
-    this.checkingStartTime = Date.now();
     this.evaluationTimer = setTimeout(() => {
       this.evaluateStress();
-    }, this.config.checkingDurationMs);
+    }, this.checkingDurationMs);
   }
 
   private onHeartRateData(hr: number): void {
     this.heartRate = hr;
     this.addToBuffer(hr);
 
-    if (this.onStateChange) {
+    if (this.onStateChange !== null) {
       this.onStateChange(this.state, this.heartRate);
     }
 
@@ -194,20 +152,14 @@ class StressDetectorClass {
     }
   }
 
-  async start(): Promise<boolean> {
+  start(): void {
     if (this.isRunning) {
-      return true;
-    }
-
-    const availability = await this.checkSensorAvailability();
-    if (!availability.heartRate) {
-      hilog.error(DOMAIN, TAG, 'HR sensor not available');
-      return false;
+      return;
     }
 
     try {
       sensor.on(sensor.SensorId.HEART_RATE, (data: sensor.HeartRateResponse) => {
-        const hr: number = data.heartRate ?? 0;
+        const hr: number = data.heartRate;
         if (hr > 0) {
           this.onHeartRateData(hr);
         }
@@ -215,10 +167,8 @@ class StressDetectorClass {
 
       this.isRunning = true;
       hilog.info(DOMAIN, TAG, 'HR sensor started');
-      return true;
     } catch (err) {
-      hilog.error(DOMAIN, TAG, 'Failed to start HR sensor: %{public}s', JSON.stringify(err));
-      return false;
+      hilog.error(DOMAIN, TAG, 'Failed to start HR sensor');
     }
   }
 
@@ -236,33 +186,25 @@ class StressDetectorClass {
 
       hilog.info(DOMAIN, TAG, 'HR sensor stopped');
     } catch (err) {
-      hilog.error(DOMAIN, TAG, 'Failed to stop HR sensor: %{public}s', JSON.stringify(err));
+      hilog.error(DOMAIN, TAG, 'Failed to stop HR sensor');
     }
   }
 
-  async startAccelerometer(): Promise<boolean> {
+  startAccelerometer(): void {
     if (this.isAccelRunning) {
-      return true;
-    }
-
-    const availability = await this.checkSensorAvailability();
-    if (!availability.accelerometer) {
-      hilog.error(DOMAIN, TAG, 'Accelerometer not available');
-      return false;
+      return;
     }
 
     try {
-      sensor.on(sensor.SensorId.ACCELEROMETER, (data) => {
+      sensor.on(sensor.SensorId.ACCELEROMETER, (data: sensor.AccelerometerResponse) => {
         const magnitude = Math.sqrt(data.x * data.x + data.y * data.y + data.z * data.z);
         this.accelMagnitude = Math.abs(magnitude - GRAVITY);
       }, { interval: 500000000 });
 
       this.isAccelRunning = true;
       hilog.info(DOMAIN, TAG, 'Accelerometer started');
-      return true;
     } catch (err) {
-      hilog.error(DOMAIN, TAG, 'Failed to start accelerometer: %{public}s', JSON.stringify(err));
-      return false;
+      hilog.error(DOMAIN, TAG, 'Failed to start accelerometer');
     }
   }
 
@@ -274,13 +216,13 @@ class StressDetectorClass {
       this.isAccelRunning = false;
       hilog.info(DOMAIN, TAG, 'Accelerometer stopped');
     } catch (err) {
-      hilog.error(DOMAIN, TAG, 'Failed to stop accelerometer: %{public}s', JSON.stringify(err));
+      hilog.error(DOMAIN, TAG, 'Failed to stop accelerometer');
     }
   }
 
-  async startLocationMonitoring(): Promise<boolean> {
+  startLocationMonitoring(): void {
     if (this.isLocationRunning) {
-      return true;
+      return;
     }
 
     try {
@@ -290,18 +232,16 @@ class StressDetectorClass {
         maxAccuracy: 50
       };
 
-      geoLocationManager.on('locationChange', request, (location) => {
-        if (location && location.speed !== undefined) {
+      geoLocationManager.on('locationChange', request, (location: geoLocationManager.Location) => {
+        if (location.speed !== undefined) {
           this.currentSpeed = location.speed;
         }
       });
 
       this.isLocationRunning = true;
-      hilog.info(DOMAIN, TAG, 'Location monitoring started');
-      return true;
+      hilog.info(DOMAIN, TAG, 'Location started');
     } catch (err) {
-      hilog.error(DOMAIN, TAG, 'Failed to start location: %{public}s', JSON.stringify(err));
-      return false;
+      hilog.error(DOMAIN, TAG, 'Failed to start location');
     }
   }
 
@@ -312,12 +252,12 @@ class StressDetectorClass {
       geoLocationManager.off('locationChange');
       this.isLocationRunning = false;
     } catch (err) {
-      hilog.error(DOMAIN, TAG, 'Failed to stop location: %{public}s', JSON.stringify(err));
+      hilog.error(DOMAIN, TAG, 'Failed to stop location');
     }
   }
 
   isMoving(): boolean {
-    return this.accelMagnitude > this.config.accelThreshold;
+    return this.accelMagnitude > this.accelThreshold;
   }
 
   getAccelMagnitude(): number {
@@ -328,12 +268,10 @@ class StressDetectorClass {
     return this.isRunning;
   }
 
-  async startAll(): Promise<void> {
-    await Promise.all([
-      this.start(),
-      this.startAccelerometer(),
-      this.startLocationMonitoring()
-    ]);
+  startAll(): void {
+    this.start();
+    this.startAccelerometer();
+    this.startLocationMonitoring();
   }
 
   stopAll(): void {
@@ -354,19 +292,16 @@ class StressDetectorClass {
     if (this.state === 'STRESS') {
       this.hrBuffer = [];
       this.updateState('NORMAL');
-      BreathingGuide.stop();
       hilog.info(DOMAIN, TAG, 'Stress alert dismissed');
     }
   }
 
-  // Test method for demo purposes - simulates stress detection
-  async testStress(): Promise<void> {
+  testStress(): void {
     hilog.info(DOMAIN, TAG, 'Test stress triggered');
     this.heartRate = 115;
-    this.accelMagnitude = 0.3; // Stationary
+    this.accelMagnitude = 0.3;
     this.updateState('CHECKING');
 
-    // After short delay, transition to STRESS
     setTimeout(() => {
       if (this.state === 'CHECKING') {
         this.updateState('STRESS');
