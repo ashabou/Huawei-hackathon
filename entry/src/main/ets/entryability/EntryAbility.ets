@@ -39,7 +39,6 @@ export default class EntryAbility extends UIAbility {
       'ohos.permission.ACCELEROMETER',
       'ohos.permission.GYROSCOPE',
       'ohos.permission.ACTIVITY_MOTION',
-      'ohos.permission.HEALTH_DATA',
       'ohos.permission.APPROXIMATELY_LOCATION'
     ];
 

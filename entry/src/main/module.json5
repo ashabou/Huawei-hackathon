@@ -33,14 +33,6 @@
         }
       },
       {
-        "name": "ohos.permission.HEALTH_DATA",
-        "reason": "$string:permission_heart_rate_reason",
-        "usedScene": {
-          "abilities": ["EntryAbility"],
-          "when": "always"
-        }
-      },
-      {
         "name": "ohos.permission.APPROXIMATELY_LOCATION",
         "reason": "$string:permission_location_reason",
         "usedScene": {
