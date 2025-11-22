@@ -161,20 +161,29 @@ class StressDetectorClass {
       hilog.info(DOMAIN, TAG, 'Starting heart rate sensor...');
 
       sensor.on(sensor.SensorId.HEART_RATE, (data: sensor.HeartRateResponse) => {
+        // Log raw data for debugging
+        hilog.info(DOMAIN, TAG, 'HR callback! Raw: %{public}s', JSON.stringify(data));
+
+        // Get heart rate value
         const hr: number = data.heartRate;
-        hilog.info(DOMAIN, TAG, 'HR data received: %{public}d', hr);
+        hilog.info(DOMAIN, TAG, 'Parsed HR: %{public}d', hr);
+
         if (hr > 0) {
           this.onHeartRateData(hr);
         }
-      }, { interval: 1000000000 }); // 1 second interval
+      }, { interval: 1000000000 }); // 1 second
 
       this.isRunning = true;
-      hilog.info(DOMAIN, TAG, 'HR sensor started successfully');
-    } catch (err) {
-      const error = err as Error;
-      hilog.error(DOMAIN, TAG, 'Failed to start HR sensor: %{public}s', error.message);
+      hilog.info(DOMAIN, TAG, 'HR sensor subscription OK - waiting for data...');
+
+      // Notify UI we're waiting
       if (this.onStateChange !== null) {
-        this.onStateChange('NORMAL', -1); // -1 indicates sensor error
+        this.onStateChange('NORMAL', 0);
+      }
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'HR sensor FAILED: %{public}s', JSON.stringify(err));
+      if (this.onStateChange !== null) {
+        this.onStateChange('NORMAL', -1);
       }
     }
   }
@@ -203,15 +212,20 @@ class StressDetectorClass {
     }
 
     try {
+      hilog.info(DOMAIN, TAG, 'Starting accelerometer...');
+
       sensor.on(sensor.SensorId.ACCELEROMETER, (data: sensor.AccelerometerResponse) => {
         const magnitude = Math.sqrt(data.x * data.x + data.y * data.y + data.z * data.z);
         this.accelMagnitude = Math.abs(magnitude - GRAVITY);
+        // Log first few readings
+        hilog.info(DOMAIN, TAG, 'Accel: x=%{public}f y=%{public}f z=%{public}f mag=%{public}f',
+          data.x, data.y, data.z, this.accelMagnitude);
       }, { interval: 500000000 });
 
       this.isAccelRunning = true;
-      hilog.info(DOMAIN, TAG, 'Accelerometer started');
+      hilog.info(DOMAIN, TAG, 'Accelerometer subscription OK');
     } catch (err) {
-      hilog.error(DOMAIN, TAG, 'Failed to start accelerometer');
+      hilog.error(DOMAIN, TAG, 'Accelerometer FAILED: %{public}s', JSON.stringify(err));
     }
   }
 
