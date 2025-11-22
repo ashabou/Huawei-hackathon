@@ -50,6 +50,14 @@
       },
       {
         "name": "ohos.permission.VIBRATE"
+      },
+      {
+        "name": "ohos.permission.KEEP_BACKGROUND_RUNNING",
+        "reason": "$string:permission_background_reason",
+        "usedScene": {
+          "abilities": ["StressMonitorService"],
+          "when": "always"
+        }
       }
     ],
     "deliveryWithInstall": true,
@@ -105,10 +113,6 @@
           }
         ]
       }
-    ],
-    "backgroundModes": [
-      "dataTransfer",
-      "location"
     ]
   }
 }

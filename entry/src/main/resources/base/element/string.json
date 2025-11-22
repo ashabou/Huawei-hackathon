@@ -23,6 +23,10 @@
     {
       "name": "permission_location_reason",
       "value": "Used to check speed and determine if you are exercising"
+    },
+    {
+      "name": "permission_background_reason",
+      "value": "Required to continue stress monitoring when app is in background"
     }
   ]
 }
