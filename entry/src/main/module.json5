@@ -9,8 +9,16 @@
     ],
     "requestPermissions": [
       {
-        "name": "ohos.permission.HEART_RATE",
-        "reason": "$string:permission_heart_rate_reason",
+        "name": "ohos.permission.ACCELEROMETER",
+        "reason": "$string:permission_activity_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "always"
+        }
+      },
+      {
+        "name": "ohos.permission.GYROSCOPE",
+        "reason": "$string:permission_activity_reason",
         "usedScene": {
           "abilities": ["EntryAbility"],
           "when": "always"
@@ -19,6 +27,14 @@
       {
         "name": "ohos.permission.ACTIVITY_MOTION",
         "reason": "$string:permission_activity_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "always"
+        }
+      },
+      {
+        "name": "ohos.permission.READ_HEALTH_DATA",
+        "reason": "$string:permission_heart_rate_reason",
         "usedScene": {
           "abilities": ["EntryAbility"],
           "when": "always"
@@ -34,14 +50,6 @@
       },
       {
         "name": "ohos.permission.VIBRATE"
-      },
-      {
-        "name": "ohos.permission.ACCELEROMETER",
-        "reason": "$string:permission_activity_reason",
-        "usedScene": {
-          "abilities": ["EntryAbility"],
-          "when": "always"
-        }
       }
     ],
     "deliveryWithInstall": true,
@@ -80,7 +88,7 @@
             "name": "ohos.extension.backup",
             "resource": "$profile:backup_config"
           }
-        ],
+        ]
       }
     ]
   }
