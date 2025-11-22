@@ -1,4 +1,5 @@
 import { sensor } from '@kit.SensorServiceKit';
+import { geoLocationManager } from '@kit.LocationKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
 const DOMAIN = 0x0000;
@@ -10,6 +11,7 @@ const HR_SPIKE_DELTA = 20;      // sudden jump from baseline
 const HR_BUFFER_SIZE = 5;       // rolling average window
 const ACCEL_MOVEMENT_THRESHOLD = 1.5;  // m/s² deviation from gravity (9.8)
 const GRAVITY = 9.8;
+const SPEED_THRESHOLD = 1.0;    // m/s (walking speed)
 
 export type StressState = 'NORMAL' | 'CHECKING' | 'EXERCISE' | 'STRESS';
 
@@ -101,9 +103,11 @@ class StressDetectorClass {
     }
 
     try {
-      sensor.on(sensor.SensorId.HEART_RATE, (data) => {
-        if (data && data.heartRate > 0) {
-          this.onHeartRateData(data.heartRate);
+      sensor.on(sensor.SensorId.HEART_RATE, (data: sensor.HeartRateResponse) => {
+        // Handle both data.heartRate and data.value for compatibility
+        const hr: number = data.heartRate ?? 0;
+        if (hr > 0) {
+          this.onHeartRateData(hr);
         }
       }, { interval: 2000000000 }); // 2 seconds in nanoseconds
 
@@ -170,6 +174,30 @@ class StressDetectorClass {
   // Get current acceleration magnitude (for debugging/UI)
   getAccelMagnitude(): number {
     return this.accelMagnitude;
+  }
+
+  // Check GPS speed (single request, returns null if unavailable)
+  async checkSpeed(): Promise<number | null> {
+    try {
+      const request: geoLocationManager.SingleLocationRequest = {
+        locatingPriority: geoLocationManager.LocatingPriority.PRIORITY_LOCATING_SPEED,
+        locatingTimeoutMs: 5000  // 5 second timeout for watch
+      };
+
+      const location = await geoLocationManager.getCurrentLocation(request);
+      const speed = location.speed ?? 0;
+      hilog.info(DOMAIN, TAG, 'GPS speed: %{public}f m/s', speed);
+      return speed;
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'GPS unavailable: %{public}s', JSON.stringify(err));
+      return null;  // GPS unavailable, use accel fallback
+    }
+  }
+
+  // Check if moving based on GPS speed
+  isMovingBySpeed(speed: number | null): boolean {
+    if (speed === null) return false;
+    return speed > SPEED_THRESHOLD;
   }
 
   // Mark as exercise (called from motion/GPS check)
