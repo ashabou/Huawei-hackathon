@@ -42,7 +42,7 @@ export default function abilityTest() {
 
     it('should_declare_required_permissions_in_manifest', 0, () => {
       const requiredPermissions: string[] = [
-        'ohos.permission.READ_HEALTH_DATA',
+        'ohos.permission.HEALTH_DATA',
         'ohos.permission.ACTIVITY_MOTION',
         'ohos.permission.APPROXIMATELY_LOCATION',
         'ohos.permission.VIBRATE'

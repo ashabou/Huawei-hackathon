@@ -33,7 +33,7 @@
         }
       },
       {
-        "name": "ohos.permission.READ_HEALTH_DATA",
+        "name": "ohos.permission.HEALTH_DATA",
         "reason": "$string:permission_heart_rate_reason",
         "usedScene": {
           "abilities": ["EntryAbility"],
@@ -89,7 +89,26 @@
             "resource": "$profile:backup_config"
           }
         ]
+      },
+      {
+        "name": "StressMonitorService",
+        "srcEntry": "./ets/services/StressMonitorService.ets",
+        "type": "service",
+        "exported": true,
+        "skills": [
+          {
+            "actions": [
+              "com.huawei.stresswatch.START",
+              "com.huawei.stresswatch.STOP",
+              "com.huawei.stresswatch.TEST_STRESS"
+            ]
+          }
+        ]
       }
+    ],
+    "backgroundModes": [
+      "dataTransfer",
+      "location"
     ]
   }
 }
