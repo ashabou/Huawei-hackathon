@@ -93,7 +93,12 @@ export default function localUnitTest() {
 
     it('elevated_at_threshold_is_false', 0, () => {
       const detector = createDetector();
-      detector.addToBuffer(70);
+      // Use baseline close to threshold so spike detection doesn't trigger
+      detector.addToBuffer(95);
+      detector.addToBuffer(95);
+      detector.addToBuffer(95);
+      // HR at exactly threshold (100) should be false (> not >=)
+      // And spike is only 5 bpm (< 20 threshold)
       expect(detector.isElevated(100)).assertFalse();
     });
 
