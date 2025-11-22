@@ -1,11 +1,5 @@
 import { describe, beforeEach, afterEach, it, expect } from '@ohos/hypium';
 
-/**
- * Unit tests for StressWatch application
- * Tests core business logic without requiring device sensors
- */
-
-// Mock the StressDetector class logic for testing (without sensor dependencies)
 class MockStressDetectorLogic {
   private hrBuffer: number[] = [];
   private readonly HR_BUFFER_SIZE = 5;
@@ -15,7 +9,10 @@ class MockStressDetectorLogic {
 
   getBaseline(): number {
     if (this.hrBuffer.length === 0) return 0;
-    const sum = this.hrBuffer.reduce((a, b) => a + b, 0);
+    let sum = 0;
+    for (let i = 0; i < this.hrBuffer.length; i++) {
+      sum += this.hrBuffer[i];
+    }
     return sum / this.hrBuffer.length;
   }
 
@@ -47,7 +44,7 @@ class MockStressDetectorLogic {
 }
 
 export default function localUnitTest() {
-  describe('StressDetector Logic Tests', () => {
+  describe('StressDetectorTests', () => {
     let detector: MockStressDetectorLogic;
 
     beforeEach(() => {
@@ -58,19 +55,19 @@ export default function localUnitTest() {
       detector.clearBuffer();
     });
 
-    describe('getBaseline()', () => {
-      it('should return 0 when buffer is empty', 0, () => {
+    describe('BaselineTests', () => {
+      it('baseline_empty_buffer_returns_zero', 0, () => {
         const baseline = detector.getBaseline();
         expect(baseline).assertEqual(0);
       });
 
-      it('should return correct average for single value', 0, () => {
+      it('baseline_single_value', 0, () => {
         detector.addToBuffer(75);
         const baseline = detector.getBaseline();
         expect(baseline).assertEqual(75);
       });
 
-      it('should calculate correct average for multiple values', 0, () => {
+      it('baseline_multiple_values', 0, () => {
         detector.addToBuffer(70);
         detector.addToBuffer(80);
         detector.addToBuffer(75);
@@ -78,8 +75,7 @@ export default function localUnitTest() {
         expect(baseline).assertEqual(75);
       });
 
-      it('should maintain rolling average with buffer size limit', 0, () => {
-        // Add 7 values - buffer size is 5
+      it('baseline_rolling_average', 0, () => {
         detector.addToBuffer(60);
         detector.addToBuffer(62);
         detector.addToBuffer(64);
@@ -87,18 +83,14 @@ export default function localUnitTest() {
         detector.addToBuffer(68);
         detector.addToBuffer(70);
         detector.addToBuffer(72);
-
-        // Should only contain last 5: 64, 66, 68, 70, 72
         expect(detector.getBufferLength()).assertEqual(5);
-
-        // Average should be (64+66+68+70+72)/5 = 68
         const baseline = detector.getBaseline();
         expect(baseline).assertEqual(68);
       });
     });
 
-    describe('isElevated()', () => {
-      it('should return true when HR exceeds high threshold', 0, () => {
+    describe('ElevatedHRTests', () => {
+      it('elevated_above_threshold', 0, () => {
         detector.addToBuffer(70);
         detector.addToBuffer(72);
         detector.addToBuffer(68);
@@ -106,27 +98,25 @@ export default function localUnitTest() {
         expect(result).assertTrue();
       });
 
-      it('should return false when HR at exactly threshold', 0, () => {
+      it('elevated_at_threshold_is_false', 0, () => {
         detector.addToBuffer(70);
         expect(detector.isElevated(100)).assertFalse();
       });
 
-      it('should return true when HR above threshold', 0, () => {
+      it('elevated_above_threshold_is_true', 0, () => {
         detector.addToBuffer(70);
         expect(detector.isElevated(101)).assertTrue();
       });
 
-      it('should return true when HR spikes above baseline', 0, () => {
-        // Pre-fill buffer to establish baseline ~70
+      it('elevated_spike_detection', 0, () => {
         detector.addToBuffer(70);
         detector.addToBuffer(70);
         detector.addToBuffer(70);
-        // Baseline is 70, delta threshold is 20, so 91+ triggers spike
         const result = detector.isElevated(95);
         expect(result).assertTrue();
       });
 
-      it('should return false for normal HR within threshold', 0, () => {
+      it('not_elevated_normal_hr', 0, () => {
         detector.addToBuffer(70);
         detector.addToBuffer(70);
         detector.addToBuffer(70);
@@ -134,108 +124,97 @@ export default function localUnitTest() {
         expect(result).assertFalse();
       });
 
-      it('should handle spike detection with empty buffer', 0, () => {
-        // With empty buffer, baseline is 0
-        // isSpike requires baseline > 0, so should only check threshold
+      it('spike_with_empty_buffer', 0, () => {
         const result = detector.isElevated(95);
-        expect(result).assertFalse(); // 95 < 100, and no spike check with 0 baseline
+        expect(result).assertFalse();
       });
     });
 
-    describe('isMoving()', () => {
-      it('should return true when acceleration exceeds threshold', 0, () => {
+    describe('MovementTests', () => {
+      it('moving_above_threshold', 0, () => {
         const result = detector.isMoving(2.0);
         expect(result).assertTrue();
       });
 
-      it('should return false when stationary', 0, () => {
+      it('stationary_below_threshold', 0, () => {
         const result = detector.isMoving(0.5);
         expect(result).assertFalse();
       });
 
-      it('should return false at exactly threshold', 0, () => {
+      it('at_threshold_is_false', 0, () => {
         const result = detector.isMoving(1.5);
         expect(result).assertFalse();
       });
 
-      it('should return true slightly above threshold', 0, () => {
+      it('slightly_above_threshold', 0, () => {
         const result = detector.isMoving(1.51);
         expect(result).assertTrue();
       });
     });
 
-    describe('Buffer Management', () => {
-      it('should not exceed buffer size of 5', 0, () => {
+    describe('BufferTests', () => {
+      it('buffer_max_size', 0, () => {
         for (let i = 0; i < 10; i++) {
           detector.addToBuffer(70 + i);
         }
         expect(detector.getBufferLength()).assertEqual(5);
       });
 
-      it('should remove oldest values when buffer is full', 0, () => {
+      it('buffer_removes_oldest', 0, () => {
         detector.addToBuffer(100);
         detector.addToBuffer(50);
         detector.addToBuffer(50);
         detector.addToBuffer(50);
         detector.addToBuffer(50);
-        // Buffer: [100, 50, 50, 50, 50], baseline = 60
-
         detector.addToBuffer(50);
-        // Buffer: [50, 50, 50, 50, 50], baseline = 50
-
         const baseline = detector.getBaseline();
         expect(baseline).assertEqual(50);
       });
     });
 
-    describe('State Transition Scenarios', () => {
-      it('should identify exercise: elevated HR + movement', 0, () => {
+    describe('ScenarioTests', () => {
+      it('exercise_elevated_and_moving', 0, () => {
         detector.addToBuffer(70);
         detector.addToBuffer(70);
         detector.addToBuffer(70);
-
         const isElevated = detector.isElevated(110);
         const isMoving = detector.isMoving(3.0);
-
         expect(isElevated).assertTrue();
         expect(isMoving).assertTrue();
       });
 
-      it('should identify stress: elevated HR + stationary', 0, () => {
+      it('stress_elevated_and_stationary', 0, () => {
         detector.addToBuffer(70);
         detector.addToBuffer(70);
         detector.addToBuffer(70);
-
         const isElevated = detector.isElevated(110);
         const isMoving = detector.isMoving(0.5);
-
         expect(isElevated).assertTrue();
         expect(isMoving).assertFalse();
       });
 
-      it('should identify normal: normal HR', 0, () => {
+      it('normal_not_elevated', 0, () => {
         detector.addToBuffer(70);
         detector.addToBuffer(70);
         detector.addToBuffer(70);
-
         const isElevated = detector.isElevated(72);
         expect(isElevated).assertFalse();
       });
     });
 
-    describe('Edge Cases', () => {
-      it('should handle zero HR reading', 0, () => {
+    describe('EdgeCaseTests', () => {
+      it('zero_hr_reading', 0, () => {
         detector.addToBuffer(0);
         const baseline = detector.getBaseline();
         expect(baseline).assertEqual(0);
       });
 
-      it('should handle very high HR reading', 0, () => {
+      it('very_high_hr', 0, () => {
         const result = detector.isElevated(200);
         expect(result).assertTrue();
       });
 
-      it('should handle negative acceleration safely', 0, () => {
+      it('negative_acceleration', 0, () => {
         const result = detector.isMoving(-1.0);
         expect(result).assertFalse();
       });
