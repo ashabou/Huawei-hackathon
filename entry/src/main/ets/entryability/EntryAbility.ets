@@ -16,7 +16,8 @@ export default class EntryAbility extends UIAbility {
     const permissions: Permissions[] = [
       'ohos.permission.HEART_RATE',
       'ohos.permission.ACTIVITY_MOTION',
-      'ohos.permission.APPROXIMATELY_LOCATION'
+      'ohos.permission.APPROXIMATELY_LOCATION',
+      'ohos.permission.ACCELEROMETER'
     ];
 
     const atManager = abilityAccessCtrl.createAtManager();

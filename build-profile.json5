@@ -1,20 +1,6 @@
 {
   "app": {
-    "signingConfigs": [
-      {
-        "name": "default",
-        "type": "HarmonyOS",
-        "material": {
-          "certpath": "/Users/mt/.ohos/config/default_MyApplication_0mHUjxvqiw5AT9zh7k4Q0XEglLCeDV6AunutV8oFm7w=.cer",
-          "keyAlias": "debugKey",
-          "keyPassword": "0000001B03485FF7FDA27B8F1A7C2B3081D3F272421AC443C1254B411D1AD889BCE9045BCFEEAECD5DA16F",
-          "profile": "/Users/mt/.ohos/config/default_MyApplication_0mHUjxvqiw5AT9zh7k4Q0XEglLCeDV6AunutV8oFm7w=.p7b",
-          "signAlg": "SHA256withECDSA",
-          "storeFile": "/Users/mt/.ohos/config/default_MyApplication_0mHUjxvqiw5AT9zh7k4Q0XEglLCeDV6AunutV8oFm7w=.p12",
-          "storePassword": "0000001BDA1770030DEE2E3D99E9036687A90D76B37392D817264D21D77698C44DEDC46C34B3C68303C846"
-        }
-      }
-    ],
+    "signingConfigs": [],
     "products": [
       {
         "name": "default",
@@ -32,7 +18,7 @@
     ],
     "buildModeSet": [
       {
-        "name": "debug",
+        "name": "debug"
       },
       {
         "name": "release"

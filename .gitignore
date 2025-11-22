@@ -12,7 +12,8 @@
 /.appanalyzer
 
 # Signing credentials - NEVER commit these
-build-profile.json5
+# Note: build-profile.json5 is committed with empty signingConfigs
+# DevEco Studio will auto-generate your signing config locally
 *.p12
 *.p7b
 *.cer
