@@ -1,4 +1,4 @@
-import { AbilityConstant, ConfigurationConstant, UIAbility, Want, abilityAccessCtrl, Permissions } from '@kit.AbilityKit';
+import { AbilityConstant, ConfigurationConstant, UIAbility, Want, abilityAccessCtrl, Permissions, common } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 
@@ -10,6 +10,28 @@ export default class EntryAbility extends UIAbility {
     this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
     hilog.info(DOMAIN, TAG, 'Ability onCreate');
     this.requestPermissions();
+
+    // Check if launched with TEST_STRESS action
+    if (want.action === 'com.huawei.stresswatch.TEST_STRESS') {
+      hilog.info(DOMAIN, TAG, 'Launched with TEST_STRESS action');
+      // Will be handled in onForeground
+    }
+  }
+
+  private startBackgroundService(): void {
+    const serviceWant: Want = {
+      bundleName: 'com.huawei.stresswatch',
+      abilityName: 'StressMonitorService',
+      action: 'com.huawei.stresswatch.START'
+    };
+
+    this.context.startServiceExtensionAbility(serviceWant)
+      .then(() => {
+        hilog.info(DOMAIN, TAG, 'Background service started');
+      })
+      .catch((err: Error) => {
+        hilog.error(DOMAIN, TAG, 'Failed to start service: %{public}s', err.message);
+      });
   }
 
   private requestPermissions(): void {
@@ -17,7 +39,7 @@ export default class EntryAbility extends UIAbility {
       'ohos.permission.ACCELEROMETER',
       'ohos.permission.GYROSCOPE',
       'ohos.permission.ACTIVITY_MOTION',
-      'ohos.permission.READ_HEALTH_DATA',
+      'ohos.permission.HEALTH_DATA',
       'ohos.permission.APPROXIMATELY_LOCATION'
     ];
 
@@ -31,6 +53,9 @@ export default class EntryAbility extends UIAbility {
           }
         }
         hilog.info(DOMAIN, TAG, 'Permissions granted: %{public}d/%{public}d', grantedCount, permissions.length);
+
+        // Start background service after permissions granted
+        this.startBackgroundService();
       })
       .catch((err: Error) => {
         hilog.error(DOMAIN, TAG, 'Permission request failed: %{public}s', err.message);

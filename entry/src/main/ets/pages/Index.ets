@@ -7,7 +7,8 @@ struct Index {
   @State heartRate: number = 0;
   @State state: StressState = 'NORMAL';
   @State isMonitoring: boolean = false;
-  @State statusMessage: string = 'Tap Start to begin monitoring';
+  @State statusMessage: string = 'Starting...';
+  @State sensorError: boolean = false;
 
   // Colors for each state
   private getStateColor(): ResourceColor {
@@ -31,9 +32,22 @@ struct Index {
     }
   }
 
+  // Auto-start on component appear
+  aboutToAppear(): void {
+    this.startMonitoring();
+  }
+
   // Start background monitoring
   private startMonitoring(): void {
     StressDetector.setOnStateChange((newState: StressState, hr: number) => {
+      // hr = -1 indicates sensor error
+      if (hr === -1) {
+        this.sensorError = true;
+        this.statusMessage = 'Sensor unavailable';
+        return;
+      }
+
+      this.sensorError = false;
       this.state = newState;
       this.heartRate = hr;
       this.statusMessage = this.getStatusMessage();
@@ -65,10 +79,10 @@ struct Index {
   build() {
     Column() {
       // Heart rate display - large and centered
-      Text(this.heartRate > 0 ? `${this.heartRate}` : '--')
+      Text(this.sensorError ? 'ERR' : (this.heartRate > 0 ? `${this.heartRate}` : '--'))
         .fontSize(48)
         .fontWeight(FontWeight.Bold)
-        .fontColor(this.getStateColor())
+        .fontColor(this.sensorError ? '#FF5722' : this.getStateColor())
 
       Text('bpm')
         .fontSize(14)
