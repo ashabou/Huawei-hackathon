@@ -10,3 +10,12 @@
 /.clang-tidy
 **/.test
 /.appanalyzer
+
+# Signing credentials - NEVER commit these
+build-profile.json5
+*.p12
+*.p7b
+*.cer
+
+# IDE user-specific files
+*.iml
