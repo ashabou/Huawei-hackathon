@@ -1,7 +1,9 @@
 import { sensor } from '@kit.SensorServiceKit';
+import { geoLocationManager } from '@kit.LocationKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { vibrator } from '@kit.SensorServiceKit';
 import { geoLocationManager } from '@kit.LocationKit';
+import { BreathingGuide, SensorSnapshot } from './BreathingGuide';
 
 const DOMAIN = 0x0000;
 const TAG = 'StressDetector';
@@ -14,6 +16,9 @@ const ACCEL_MOVEMENT_THRESHOLD = 1.5;  // m/s² deviation from gravity
 const GRAVITY = 9.81;
 const CHECKING_DURATION_MS = 5000;  // Time to evaluate before determining stress/exercise
 const GPS_SPEED_THRESHOLD = 1.0;    // m/s - walking speed threshold
+const ACCEL_MOVEMENT_THRESHOLD = 1.5;  // m/s² deviation from gravity (9.8)
+const GRAVITY = 9.8;
+const SPEED_THRESHOLD = 1.0;    // m/s (walking speed)
 
 export type StressState = 'NORMAL' | 'CHECKING' | 'EXERCISE' | 'STRESS';
 
@@ -239,9 +244,11 @@ class StressDetectorClass {
     }
 
     try {
-      sensor.on(sensor.SensorId.HEART_RATE, (data) => {
-        if (data && data.heartRate > 0) {
-          this.onHeartRateData(data.heartRate);
+      sensor.on(sensor.SensorId.HEART_RATE, (data: sensor.HeartRateResponse) => {
+        // Handle both data.heartRate and data.value for compatibility
+        const hr: number = data.heartRate ?? 0;
+        if (hr > 0) {
+          this.onHeartRateData(hr);
         }
       }, { interval: 2000000000 }); // 2 seconds in nanoseconds
 
