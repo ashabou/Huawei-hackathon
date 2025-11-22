@@ -1,5 +1,7 @@
 import { sensor } from '@kit.SensorServiceKit';
+import { geoLocationManager } from '@kit.LocationKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { BreathingGuide, SensorSnapshot } from './BreathingGuide';
 
 const DOMAIN = 0x0000;
 const TAG = 'StressDetector';
@@ -10,6 +12,7 @@ const HR_SPIKE_DELTA = 20;      // sudden jump from baseline
 const HR_BUFFER_SIZE = 5;       // rolling average window
 const ACCEL_MOVEMENT_THRESHOLD = 1.5;  // m/s² deviation from gravity (9.8)
 const GRAVITY = 9.8;
+const SPEED_THRESHOLD = 1.0;    // m/s (walking speed)
 
 export type StressState = 'NORMAL' | 'CHECKING' | 'EXERCISE' | 'STRESS';
 
@@ -80,14 +83,14 @@ class StressDetectorClass {
     this.addToBuffer(hr);
     hilog.debug(DOMAIN, TAG, 'HR: %{public}d, baseline: %{public}d', hr, Math.round(this.getBaseline()));
 
-    // Notify callback even for normal readings (for UI updates)
+    // Notify callback for UI updates
     if (this.onStateChange) {
       this.onStateChange(this.state, this.heartRate);
     }
 
-    // Check if elevated - actual stress detection happens in evaluateStress()
+    // Trigger stress evaluation if HR is elevated
     if (this.isElevated()) {
-      this.updateState('CHECKING');
+      this.evaluateStress();
     } else {
       this.updateState('NORMAL');
     }
@@ -101,9 +104,11 @@ class StressDetectorClass {
     }
 
     try {
-      sensor.on(sensor.SensorId.HEART_RATE, (data) => {
-        if (data && data.heartRate > 0) {
-          this.onHeartRateData(data.heartRate);
+      sensor.on(sensor.SensorId.HEART_RATE, (data: sensor.HeartRateResponse) => {
+        // Handle both data.heartRate and data.value for compatibility
+        const hr: number = data.heartRate ?? 0;
+        if (hr > 0) {
+          this.onHeartRateData(hr);
         }
       }, { interval: 2000000000 }); // 2 seconds in nanoseconds
 
@@ -172,6 +177,81 @@ class StressDetectorClass {
     return this.accelMagnitude;
   }
 
+  // Check GPS speed (single request, returns null if unavailable)
+  async checkSpeed(): Promise<number | null> {
+    try {
+      const request: geoLocationManager.SingleLocationRequest = {
+        locatingPriority: geoLocationManager.LocatingPriority.PRIORITY_LOCATING_SPEED,
+        locatingTimeoutMs: 5000  // 5 second timeout for watch
+      };
+
+      const location = await geoLocationManager.getCurrentLocation(request);
+      const speed = location.speed ?? 0;
+      hilog.info(DOMAIN, TAG, 'GPS speed: %{public}f m/s', speed);
+      return speed;
+    } catch (err) {
+      hilog.warn(DOMAIN, TAG, 'GPS unavailable: %{public}s', JSON.stringify(err));
+      return null;  // GPS unavailable, use accel fallback
+    }
+  }
+
+  // Check if moving based on GPS speed
+  isMovingBySpeed(speed: number | null): boolean {
+    if (speed === null) return false;
+    return speed > SPEED_THRESHOLD;
+  }
+
+  // Main stress evaluation - call this when HR is elevated
+  async evaluateStress(): Promise<void> {
+    if (!this.isElevated()) {
+      this.updateState('NORMAL');
+      return;
+    }
+
+    this.updateState('CHECKING');
+    hilog.info(DOMAIN, TAG, 'HR elevated, checking movement...');
+
+    // Try GPS first (more accurate)
+    const speed = await this.checkSpeed();
+    if (this.isMovingBySpeed(speed)) {
+      hilog.info(DOMAIN, TAG, 'Moving by GPS -> EXERCISE');
+      this.updateState('EXERCISE');
+      return;
+    }
+
+    // Fallback to accelerometer
+    if (this.isMoving()) {
+      hilog.info(DOMAIN, TAG, 'Moving by accelerometer -> EXERCISE');
+      this.updateState('EXERCISE');
+      return;
+    }
+
+    // Not moving + high HR = stress
+    hilog.info(DOMAIN, TAG, 'Not moving + high HR -> STRESS');
+    this.updateState('STRESS');
+
+    // Trigger breathing guide
+    this.triggerBreathingGuide();
+  }
+
+  // Trigger LLM-driven breathing guidance
+  private async triggerBreathingGuide(): Promise<void> {
+    // Alert user immediately
+    await BreathingGuide.alertStress();
+
+    // Log sensor snapshot (for future LLM use)
+    const snapshot: SensorSnapshot = {
+      heartRate: this.heartRate,
+      heartRateBaseline: Math.round(this.getBaseline()),
+      isMoving: this.isMoving(),
+      accelMagnitude: this.accelMagnitude
+    };
+    await BreathingGuide.getBreathingPatternFromLLM(snapshot);
+
+    // Start fixed 4-7-8 breathing guide
+    BreathingGuide.start();
+  }
+
   // Mark as exercise (called from motion/GPS check)
   setExercise(): void {
     this.updateState('EXERCISE');
@@ -180,6 +260,14 @@ class StressDetectorClass {
   // Mark as stress (called from motion/GPS check)
   setStress(): void {
     this.updateState('STRESS');
+  }
+
+  // Test/Demo: Force trigger stress and breathing guide
+  async testStress(): Promise<void> {
+    hilog.info(DOMAIN, TAG, 'TEST: Forcing stress state for demo');
+    this.heartRate = 110;  // Simulate elevated HR
+    this.updateState('STRESS');
+    await this.triggerBreathingGuide();
   }
 
   // Reset to normal
