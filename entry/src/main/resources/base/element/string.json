@@ -2,15 +2,27 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "module description"
+      "value": "Stress detection watch app"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "description"
+      "value": "Monitors heart rate to detect stress"
     },
     {
       "name": "EntryAbility_label",
-      "value": "label"
+      "value": "StressWatch"
+    },
+    {
+      "name": "permission_heart_rate_reason",
+      "value": "Used to monitor heart rate for stress detection"
+    },
+    {
+      "name": "permission_activity_reason",
+      "value": "Used to detect movement and distinguish exercise from stress"
+    },
+    {
+      "name": "permission_location_reason",
+      "value": "Used to check speed and determine if you are exercising"
     }
   ]
 }
