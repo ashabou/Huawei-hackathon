@@ -1,4 +1,4 @@
-import { describe, beforeEach, afterEach, it, expect } from '@ohos/hypium';
+import { describe, it, expect } from '@ohos/hypium';
 
 class MockStressDetectorLogic {
   private hrBuffer: number[] = [];
@@ -34,190 +34,191 @@ class MockStressDetectorLogic {
     return accelMagnitude > this.ACCEL_THRESHOLD;
   }
 
-  clearBuffer(): void {
-    this.hrBuffer = [];
-  }
-
   getBufferLength(): number {
     return this.hrBuffer.length;
   }
 }
 
+function createDetector(): MockStressDetectorLogic {
+  return new MockStressDetectorLogic();
+}
+
 export default function localUnitTest() {
   describe('StressDetectorTests', () => {
-    let detector: MockStressDetectorLogic;
 
-    beforeEach(() => {
-      detector = new MockStressDetectorLogic();
+    it('baseline_empty_buffer_returns_zero', 0, () => {
+      const detector = createDetector();
+      const baseline = detector.getBaseline();
+      expect(baseline).assertEqual(0);
     });
 
-    afterEach(() => {
-      detector.clearBuffer();
+    it('baseline_single_value', 0, () => {
+      const detector = createDetector();
+      detector.addToBuffer(75);
+      const baseline = detector.getBaseline();
+      expect(baseline).assertEqual(75);
     });
 
-    describe('BaselineTests', () => {
-      it('baseline_empty_buffer_returns_zero', 0, () => {
-        const baseline = detector.getBaseline();
-        expect(baseline).assertEqual(0);
-      });
-
-      it('baseline_single_value', 0, () => {
-        detector.addToBuffer(75);
-        const baseline = detector.getBaseline();
-        expect(baseline).assertEqual(75);
-      });
-
-      it('baseline_multiple_values', 0, () => {
-        detector.addToBuffer(70);
-        detector.addToBuffer(80);
-        detector.addToBuffer(75);
-        const baseline = detector.getBaseline();
-        expect(baseline).assertEqual(75);
-      });
-
-      it('baseline_rolling_average', 0, () => {
-        detector.addToBuffer(60);
-        detector.addToBuffer(62);
-        detector.addToBuffer(64);
-        detector.addToBuffer(66);
-        detector.addToBuffer(68);
-        detector.addToBuffer(70);
-        detector.addToBuffer(72);
-        expect(detector.getBufferLength()).assertEqual(5);
-        const baseline = detector.getBaseline();
-        expect(baseline).assertEqual(68);
-      });
+    it('baseline_multiple_values', 0, () => {
+      const detector = createDetector();
+      detector.addToBuffer(70);
+      detector.addToBuffer(80);
+      detector.addToBuffer(75);
+      const baseline = detector.getBaseline();
+      expect(baseline).assertEqual(75);
     });
 
-    describe('ElevatedHRTests', () => {
-      it('elevated_above_threshold', 0, () => {
-        detector.addToBuffer(70);
-        detector.addToBuffer(72);
-        detector.addToBuffer(68);
-        const result = detector.isElevated(105);
-        expect(result).assertTrue();
-      });
-
-      it('elevated_at_threshold_is_false', 0, () => {
-        detector.addToBuffer(70);
-        expect(detector.isElevated(100)).assertFalse();
-      });
-
-      it('elevated_above_threshold_is_true', 0, () => {
-        detector.addToBuffer(70);
-        expect(detector.isElevated(101)).assertTrue();
-      });
-
-      it('elevated_spike_detection', 0, () => {
-        detector.addToBuffer(70);
-        detector.addToBuffer(70);
-        detector.addToBuffer(70);
-        const result = detector.isElevated(95);
-        expect(result).assertTrue();
-      });
-
-      it('not_elevated_normal_hr', 0, () => {
-        detector.addToBuffer(70);
-        detector.addToBuffer(70);
-        detector.addToBuffer(70);
-        const result = detector.isElevated(75);
-        expect(result).assertFalse();
-      });
-
-      it('spike_with_empty_buffer', 0, () => {
-        const result = detector.isElevated(95);
-        expect(result).assertFalse();
-      });
+    it('baseline_rolling_average', 0, () => {
+      const detector = createDetector();
+      detector.addToBuffer(60);
+      detector.addToBuffer(62);
+      detector.addToBuffer(64);
+      detector.addToBuffer(66);
+      detector.addToBuffer(68);
+      detector.addToBuffer(70);
+      detector.addToBuffer(72);
+      expect(detector.getBufferLength()).assertEqual(5);
+      const baseline = detector.getBaseline();
+      expect(baseline).assertEqual(68);
     });
 
-    describe('MovementTests', () => {
-      it('moving_above_threshold', 0, () => {
-        const result = detector.isMoving(2.0);
-        expect(result).assertTrue();
-      });
-
-      it('stationary_below_threshold', 0, () => {
-        const result = detector.isMoving(0.5);
-        expect(result).assertFalse();
-      });
-
-      it('at_threshold_is_false', 0, () => {
-        const result = detector.isMoving(1.5);
-        expect(result).assertFalse();
-      });
-
-      it('slightly_above_threshold', 0, () => {
-        const result = detector.isMoving(1.51);
-        expect(result).assertTrue();
-      });
+    it('elevated_above_threshold', 0, () => {
+      const detector = createDetector();
+      detector.addToBuffer(70);
+      detector.addToBuffer(72);
+      detector.addToBuffer(68);
+      const result = detector.isElevated(105);
+      expect(result).assertTrue();
     });
 
-    describe('BufferTests', () => {
-      it('buffer_max_size', 0, () => {
-        for (let i = 0; i < 10; i++) {
-          detector.addToBuffer(70 + i);
-        }
-        expect(detector.getBufferLength()).assertEqual(5);
-      });
-
-      it('buffer_removes_oldest', 0, () => {
-        detector.addToBuffer(100);
-        detector.addToBuffer(50);
-        detector.addToBuffer(50);
-        detector.addToBuffer(50);
-        detector.addToBuffer(50);
-        detector.addToBuffer(50);
-        const baseline = detector.getBaseline();
-        expect(baseline).assertEqual(50);
-      });
+    it('elevated_at_threshold_is_false', 0, () => {
+      const detector = createDetector();
+      detector.addToBuffer(70);
+      expect(detector.isElevated(100)).assertFalse();
     });
 
-    describe('ScenarioTests', () => {
-      it('exercise_elevated_and_moving', 0, () => {
-        detector.addToBuffer(70);
-        detector.addToBuffer(70);
-        detector.addToBuffer(70);
-        const isElevated = detector.isElevated(110);
-        const isMoving = detector.isMoving(3.0);
-        expect(isElevated).assertTrue();
-        expect(isMoving).assertTrue();
-      });
-
-      it('stress_elevated_and_stationary', 0, () => {
-        detector.addToBuffer(70);
-        detector.addToBuffer(70);
-        detector.addToBuffer(70);
-        const isElevated = detector.isElevated(110);
-        const isMoving = detector.isMoving(0.5);
-        expect(isElevated).assertTrue();
-        expect(isMoving).assertFalse();
-      });
-
-      it('normal_not_elevated', 0, () => {
-        detector.addToBuffer(70);
-        detector.addToBuffer(70);
-        detector.addToBuffer(70);
-        const isElevated = detector.isElevated(72);
-        expect(isElevated).assertFalse();
-      });
+    it('elevated_above_threshold_is_true', 0, () => {
+      const detector = createDetector();
+      detector.addToBuffer(70);
+      expect(detector.isElevated(101)).assertTrue();
     });
 
-    describe('EdgeCaseTests', () => {
-      it('zero_hr_reading', 0, () => {
-        detector.addToBuffer(0);
-        const baseline = detector.getBaseline();
-        expect(baseline).assertEqual(0);
-      });
+    it('elevated_spike_detection', 0, () => {
+      const detector = createDetector();
+      detector.addToBuffer(70);
+      detector.addToBuffer(70);
+      detector.addToBuffer(70);
+      const result = detector.isElevated(95);
+      expect(result).assertTrue();
+    });
 
-      it('very_high_hr', 0, () => {
-        const result = detector.isElevated(200);
-        expect(result).assertTrue();
-      });
+    it('not_elevated_normal_hr', 0, () => {
+      const detector = createDetector();
+      detector.addToBuffer(70);
+      detector.addToBuffer(70);
+      detector.addToBuffer(70);
+      const result = detector.isElevated(75);
+      expect(result).assertFalse();
+    });
 
-      it('negative_acceleration', 0, () => {
-        const result = detector.isMoving(-1.0);
-        expect(result).assertFalse();
-      });
+    it('spike_with_empty_buffer', 0, () => {
+      const detector = createDetector();
+      const result = detector.isElevated(95);
+      expect(result).assertFalse();
+    });
+
+    it('moving_above_threshold', 0, () => {
+      const detector = createDetector();
+      const result = detector.isMoving(2.0);
+      expect(result).assertTrue();
+    });
+
+    it('stationary_below_threshold', 0, () => {
+      const detector = createDetector();
+      const result = detector.isMoving(0.5);
+      expect(result).assertFalse();
+    });
+
+    it('at_threshold_is_false', 0, () => {
+      const detector = createDetector();
+      const result = detector.isMoving(1.5);
+      expect(result).assertFalse();
+    });
+
+    it('slightly_above_threshold', 0, () => {
+      const detector = createDetector();
+      const result = detector.isMoving(1.51);
+      expect(result).assertTrue();
+    });
+
+    it('buffer_max_size', 0, () => {
+      const detector = createDetector();
+      for (let i = 0; i < 10; i++) {
+        detector.addToBuffer(70 + i);
+      }
+      expect(detector.getBufferLength()).assertEqual(5);
+    });
+
+    it('buffer_removes_oldest', 0, () => {
+      const detector = createDetector();
+      detector.addToBuffer(100);
+      detector.addToBuffer(50);
+      detector.addToBuffer(50);
+      detector.addToBuffer(50);
+      detector.addToBuffer(50);
+      detector.addToBuffer(50);
+      const baseline = detector.getBaseline();
+      expect(baseline).assertEqual(50);
+    });
+
+    it('exercise_elevated_and_moving', 0, () => {
+      const detector = createDetector();
+      detector.addToBuffer(70);
+      detector.addToBuffer(70);
+      detector.addToBuffer(70);
+      const isElevated = detector.isElevated(110);
+      const isMoving = detector.isMoving(3.0);
+      expect(isElevated).assertTrue();
+      expect(isMoving).assertTrue();
+    });
+
+    it('stress_elevated_and_stationary', 0, () => {
+      const detector = createDetector();
+      detector.addToBuffer(70);
+      detector.addToBuffer(70);
+      detector.addToBuffer(70);
+      const isElevated = detector.isElevated(110);
+      const isMoving = detector.isMoving(0.5);
+      expect(isElevated).assertTrue();
+      expect(isMoving).assertFalse();
+    });
+
+    it('normal_not_elevated', 0, () => {
+      const detector = createDetector();
+      detector.addToBuffer(70);
+      detector.addToBuffer(70);
+      detector.addToBuffer(70);
+      const isElevated = detector.isElevated(72);
+      expect(isElevated).assertFalse();
+    });
+
+    it('zero_hr_reading', 0, () => {
+      const detector = createDetector();
+      detector.addToBuffer(0);
+      const baseline = detector.getBaseline();
+      expect(baseline).assertEqual(0);
+    });
+
+    it('very_high_hr', 0, () => {
+      const detector = createDetector();
+      const result = detector.isElevated(200);
+      expect(result).assertTrue();
+    });
+
+    it('negative_acceleration', 0, () => {
+      const detector = createDetector();
+      const result = detector.isMoving(-1.0);
+      expect(result).assertFalse();
     });
   });
 }
