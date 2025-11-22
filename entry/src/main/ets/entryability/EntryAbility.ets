@@ -14,21 +14,23 @@ export default class EntryAbility extends UIAbility {
 
   private requestPermissions(): void {
     const permissions: Permissions[] = [
-      'ohos.permission.HEART_RATE',
+      'ohos.permission.ACCELEROMETER',
+      'ohos.permission.GYROSCOPE',
       'ohos.permission.ACTIVITY_MOTION',
-      'ohos.permission.APPROXIMATELY_LOCATION',
-      'ohos.permission.ACCELEROMETER'
+      'ohos.permission.READ_HEALTH_DATA',
+      'ohos.permission.APPROXIMATELY_LOCATION'
     ];
 
     const atManager = abilityAccessCtrl.createAtManager();
     atManager.requestPermissionsFromUser(this.context, permissions)
       .then((result) => {
-        const allGranted = result.authResults.every(r => r === 0);
-        if (allGranted) {
-          hilog.info(DOMAIN, TAG, 'All permissions granted');
-        } else {
-          hilog.warn(DOMAIN, TAG, 'Some permissions denied: %{public}s', JSON.stringify(result.authResults));
+        let grantedCount = 0;
+        for (let i = 0; i < result.authResults.length; i++) {
+          if (result.authResults[i] === 0) {
+            grantedCount++;
+          }
         }
+        hilog.info(DOMAIN, TAG, 'Permissions granted: %{public}d/%{public}d', grantedCount, permissions.length);
       })
       .catch((err: Error) => {
         hilog.error(DOMAIN, TAG, 'Permission request failed: %{public}s', err.message);
@@ -44,10 +46,10 @@ export default class EntryAbility extends UIAbility {
 
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
-        hilog.error(DOMAIN, TAG, 'Failed to load content: %{public}s', JSON.stringify(err));
+        hilog.error(DOMAIN, TAG, 'Failed to load content');
         return;
       }
-      hilog.info(DOMAIN, TAG, 'Content loaded successfully');
+      hilog.info(DOMAIN, TAG, 'Content loaded');
     });
   }
 
