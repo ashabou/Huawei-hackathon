@@ -158,33 +158,15 @@ class StressDetectorClass {
     }
 
     try {
-      // Check sensor availability first
-      const sensorList = sensor.getSensorList();
-      let hasHeartRate = false;
-      for (let i = 0; i < sensorList.length; i++) {
-        if (sensorList[i].sensorId === sensor.SensorId.HEART_RATE) {
-          hasHeartRate = true;
-          hilog.info(DOMAIN, TAG, 'Heart rate sensor found: %{public}s', sensorList[i].sensorName);
-          break;
-        }
-      }
-
-      if (!hasHeartRate) {
-        hilog.error(DOMAIN, TAG, 'No heart rate sensor available on this device');
-        // Notify UI that sensor is unavailable
-        if (this.onStateChange !== null) {
-          this.onStateChange('NORMAL', -1); // -1 indicates sensor error
-        }
-        return;
-      }
+      hilog.info(DOMAIN, TAG, 'Starting heart rate sensor...');
 
       sensor.on(sensor.SensorId.HEART_RATE, (data: sensor.HeartRateResponse) => {
         const hr: number = data.heartRate;
-        hilog.debug(DOMAIN, TAG, 'HR data received: %{public}d', hr);
+        hilog.info(DOMAIN, TAG, 'HR data received: %{public}d', hr);
         if (hr > 0) {
           this.onHeartRateData(hr);
         }
-      }, { interval: 1000000000 }); // 1 second interval for better responsiveness
+      }, { interval: 1000000000 }); // 1 second interval
 
       this.isRunning = true;
       hilog.info(DOMAIN, TAG, 'HR sensor started successfully');
@@ -192,7 +174,7 @@ class StressDetectorClass {
       const error = err as Error;
       hilog.error(DOMAIN, TAG, 'Failed to start HR sensor: %{public}s', error.message);
       if (this.onStateChange !== null) {
-        this.onStateChange('NORMAL', -1);
+        this.onStateChange('NORMAL', -1); // -1 indicates sensor error
       }
     }
   }

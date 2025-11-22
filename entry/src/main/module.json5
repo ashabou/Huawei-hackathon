@@ -33,6 +33,14 @@
         }
       },
       {
+        "name": "ohos.permission.READ_HEALTH_DATA",
+        "reason": "$string:permission_heart_rate_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "always"
+        }
+      },
+      {
         "name": "ohos.permission.APPROXIMATELY_LOCATION",
         "reason": "$string:permission_location_reason",
         "usedScene": {
@@ -42,14 +50,6 @@
       },
       {
         "name": "ohos.permission.VIBRATE"
-      },
-      {
-        "name": "ohos.permission.KEEP_BACKGROUND_RUNNING",
-        "reason": "$string:permission_background_reason",
-        "usedScene": {
-          "abilities": ["StressMonitorService"],
-          "when": "always"
-        }
       }
     ],
     "deliveryWithInstall": true,
@@ -87,21 +87,6 @@
           {
             "name": "ohos.extension.backup",
             "resource": "$profile:backup_config"
-          }
-        ]
-      },
-      {
-        "name": "StressMonitorService",
-        "srcEntry": "./ets/services/StressMonitorService.ets",
-        "type": "service",
-        "exported": true,
-        "skills": [
-          {
-            "actions": [
-              "com.huawei.stresswatch.START",
-              "com.huawei.stresswatch.STOP",
-              "com.huawei.stresswatch.TEST_STRESS"
-            ]
           }
         ]
       }
