@@ -82,14 +82,14 @@ class StressDetectorClass {
     this.addToBuffer(hr);
     hilog.debug(DOMAIN, TAG, 'HR: %{public}d, baseline: %{public}d', hr, Math.round(this.getBaseline()));
 
-    // Notify callback even for normal readings (for UI updates)
+    // Notify callback for UI updates
     if (this.onStateChange) {
       this.onStateChange(this.state, this.heartRate);
     }
 
-    // Check if elevated - actual stress detection happens in evaluateStress()
+    // Trigger stress evaluation if HR is elevated
     if (this.isElevated()) {
-      this.updateState('CHECKING');
+      this.evaluateStress();
     } else {
       this.updateState('NORMAL');
     }
@@ -198,6 +198,36 @@ class StressDetectorClass {
   isMovingBySpeed(speed: number | null): boolean {
     if (speed === null) return false;
     return speed > SPEED_THRESHOLD;
+  }
+
+  // Main stress evaluation - call this when HR is elevated
+  async evaluateStress(): Promise<void> {
+    if (!this.isElevated()) {
+      this.updateState('NORMAL');
+      return;
+    }
+
+    this.updateState('CHECKING');
+    hilog.info(DOMAIN, TAG, 'HR elevated, checking movement...');
+
+    // Try GPS first (more accurate)
+    const speed = await this.checkSpeed();
+    if (this.isMovingBySpeed(speed)) {
+      hilog.info(DOMAIN, TAG, 'Moving by GPS -> EXERCISE');
+      this.updateState('EXERCISE');
+      return;
+    }
+
+    // Fallback to accelerometer
+    if (this.isMoving()) {
+      hilog.info(DOMAIN, TAG, 'Moving by accelerometer -> EXERCISE');
+      this.updateState('EXERCISE');
+      return;
+    }
+
+    // Not moving + high HR = stress
+    hilog.info(DOMAIN, TAG, 'Not moving + high HR -> STRESS');
+    this.updateState('STRESS');
   }
 
   // Mark as exercise (called from motion/GPS check)
