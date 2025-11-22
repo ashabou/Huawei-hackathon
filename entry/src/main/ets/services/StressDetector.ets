@@ -8,6 +8,8 @@ const TAG = 'StressDetector';
 const HR_HIGH_THRESHOLD = 100;  // bpm considered elevated
 const HR_SPIKE_DELTA = 20;      // sudden jump from baseline
 const HR_BUFFER_SIZE = 5;       // rolling average window
+const ACCEL_MOVEMENT_THRESHOLD = 1.5;  // m/s² deviation from gravity (9.8)
+const GRAVITY = 9.8;
 
 export type StressState = 'NORMAL' | 'CHECKING' | 'EXERCISE' | 'STRESS';
 
@@ -19,6 +21,8 @@ class StressDetectorClass {
   private hrBuffer: number[] = [];
   private state: StressState = 'NORMAL';
   private isRunning: boolean = false;
+  private isAccelRunning: boolean = false;
+  private accelMagnitude: number = 0;
   private onStateChange: StateChangeCallback | null = null;
 
   // Get current heart rate
@@ -121,6 +125,51 @@ class StressDetectorClass {
     } catch (err) {
       hilog.error(DOMAIN, TAG, 'Failed to stop HR sensor: %{public}s', JSON.stringify(err));
     }
+  }
+
+  // Start accelerometer monitoring
+  startAccelerometer(): void {
+    if (this.isAccelRunning) {
+      hilog.warn(DOMAIN, TAG, 'Accelerometer already running');
+      return;
+    }
+
+    try {
+      sensor.on(sensor.SensorId.ACCELEROMETER, (data) => {
+        // Calculate magnitude: sqrt(x² + y² + z²)
+        const magnitude = Math.sqrt(data.x * data.x + data.y * data.y + data.z * data.z);
+        // Store deviation from gravity
+        this.accelMagnitude = Math.abs(magnitude - GRAVITY);
+      }, { interval: 500000000 }); // 500ms in nanoseconds
+
+      this.isAccelRunning = true;
+      hilog.info(DOMAIN, TAG, 'Accelerometer started');
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'Failed to start accelerometer: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  // Stop accelerometer monitoring
+  stopAccelerometer(): void {
+    if (!this.isAccelRunning) return;
+
+    try {
+      sensor.off(sensor.SensorId.ACCELEROMETER);
+      this.isAccelRunning = false;
+      hilog.info(DOMAIN, TAG, 'Accelerometer stopped');
+    } catch (err) {
+      hilog.error(DOMAIN, TAG, 'Failed to stop accelerometer: %{public}s', JSON.stringify(err));
+    }
+  }
+
+  // Check if user is moving based on accelerometer
+  isMoving(): boolean {
+    return this.accelMagnitude > ACCEL_MOVEMENT_THRESHOLD;
+  }
+
+  // Get current acceleration magnitude (for debugging/UI)
+  getAccelMagnitude(): number {
+    return this.accelMagnitude;
   }
 
   // Mark as exercise (called from motion/GPS check)
